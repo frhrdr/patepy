@@ -1,5 +1,4 @@
 import numpy as np
-import torch as pt
 from aliases import get_log_q, rdp_max_vote, rdp_threshold, rdp_to_dp, \
   local_sensitivity, local_to_smooth_sens, rdp_eps_release
 
@@ -8,7 +7,7 @@ class PATEPyTorch:
   """
   This implementation is per sample. Minibatched version coming later...
   class is meant to guide training of an arbitrary student model in the PATE framework. Its tasks are:
-  privacy accounting is done in numpy, for vote perturbation, pytorch is assumed
+  currently, everything is based on numpy
   - track privacy loss during training
   - determine, which teacher responses are used for training following GNMax, GN-conf, GN-int or a mix of the latter two
   (- terminate training when a predetermined privacy budget is exhausted) useful budget definition is hard to define
@@ -17,11 +16,11 @@ class PATEPyTorch:
 
   def __init__(self, target_delta, sigma_votes, n_teachers, sigma_eps_release,
                threshold_mode='basic', threshold_t=None, threshold_gamma=None, sigma_thresh=None,
-               short_list_orders=True):
+               order_specs=None):
     super(PATEPyTorch, self).__init__()
 
     self.n_teachers = n_teachers
-    self.orders = self._get_orders(short_list_orders)
+    self.orders = self._get_orders(order_specs)
     self.target_delta = target_delta
     self.sigma_votes = sigma_votes
     self.sigma_thresh = sigma_thresh
@@ -38,14 +37,19 @@ class PATEPyTorch:
     self.rdp_eps_by_order = np.zeros(len(self.orders))  # stores the data-dependent privacy loss
     self.votes_log = []  # stores votes and whether the threshold was passsed for smooth sensitivity analysis
     self.selected_order = None
-    self.data_dependent_eps = None
+    self.data_dependent_ddp_eps = None
+    self.data_dependent_rdp_eps = None
 
   @staticmethod
-  def _get_orders(short_list):
-    if short_list:
+  def _get_orders(specs):
+    if specs in ('short', 'shortlist', None):
       return np.round(np.concatenate((np.arange(2, 50 + 1, 1), np.logspace(np.log10(50), np.log10(1000), num=20))))
-    else:
+    elif specs in ('long', 'longlist'):
       return np.concatenate((np.arange(2, 100 + 1, .5), np.logspace(np.log10(100), np.log10(500), num=100)))
+    elif isinstance(specs, list):
+      return np.asarray(specs)
+    else:
+      raise ValueError
 
   def _get_threshold_mode(self, threshold_mode):
     modes = {'basic': self.basic_mode, 'confident': self.confident_mode, 'interactive': self.interactive_mode}
@@ -82,23 +86,23 @@ class PATEPyTorch:
 
     elif self.threshold_mode == self.confident_mode:
       self._add_rdp_loss(votes, self.sigma_thresh, thresh=True)
-      if pt.max(votes) + pt.normal(0., self.sigma_thresh) >= self.threshold_T:
+      if np.max(votes) + np.random.normal(0., self.sigma_thresh) >= self.threshold_T:
         release_votes = True
 
     elif self.threshold_mode == self.interactive_mode:
       thresh_votes = votes - self.n_teachers * preds
       self._add_rdp_loss(thresh_votes, self.sigma_thresh, thresh=True)
-      if pt.max(thresh_votes) + pt.normal(0., self.sigma_thresh) >= self.threshold_T:
+      if np.max(thresh_votes) + np.random.normal(0., self.sigma_thresh) >= self.threshold_T:
         release_votes = True
-      elif pt.max(preds) > self.threshold_gamma:
-        data_intependent_ret = pt.argmax(preds)
+      elif np.max(preds) > self.threshold_gamma:
+        data_intependent_ret = np.argmax(preds)
 
     self.votes_log.append((votes, thresh_votes, release_votes))
 
     # release max vote if threshold is passed
     if release_votes:
       self._add_rdp_loss(votes, self.sigma_votes, thresh=False)
-      return pt.argmax(votes + pt.normal(pt.ones_like(votes), self.sigma_thresh))
+      return np.argmax(votes + np.random.normal(np.ones_like(votes), self.sigma_thresh))
     else:
       return data_intependent_ret
 
@@ -117,18 +121,23 @@ class PATEPyTorch:
     released_vals = ret_vals[indices]
     return released_vals, indices
 
-  def _data_dependent_rdp(self):
+  def _data_dependent_dp(self, rdp=True):
     """
     computes and saves the data-dependent epsilon
     :return:
     """
-    if self.data_dependent_eps is None:
+    if self.data_dependent_ddp_eps is None:
       eps, order = rdp_to_dp(self.orders, self.rdp_eps_by_order, self.target_delta)
       self.selected_order = order
-      self.data_dependent_eps = eps
-    return self.data_dependent_eps
+      self.data_dependent_ddp_eps = eps
+      self.data_dependent_rdp_eps = self.rdp_eps_by_order[np.argwhere(self.orders == order)]
 
-  def release_epsilon_fixed_order(self):
+    if rdp:
+      return self.data_dependent_rdp_eps, self.selected_order
+    else:
+      return self.data_dependent_ddp_eps, self.target_delta
+
+  def release_epsilon_fixed_order(self, custom_beta=None, analysis=False, verbose=False):
     """
     goes through the votes_log and computes the smooth sensitivity of the data-dependent epsilon
     depends on the chosen threshold mode.
@@ -137,9 +146,12 @@ class PATEPyTorch:
     but may be implemented in a separate function later on.
     :return: parameters of the private epsilon distribution along with a sinlge draw for release.
     """
-    order = self.selected_order
-    data_dependent_eps = self._data_dependent_rdp()
+    data_dependent_rdp_eps, order = self._data_dependent_dp(rdp=True)
+
     ls_by_dist_acc = np.zeros(self.n_teachers)
+
+    if verbose:
+      print('accounting ls of votes:')
 
     for idx, (votes, thresh_votes, released) in enumerate(self.votes_log):
       if self.threshold_mode is not self.basic_mode:
@@ -150,12 +162,22 @@ class PATEPyTorch:
         # add release cost
         ls_by_dist_acc += local_sensitivity(votes, self.n_teachers, self.sigma_votes, order)
 
-      beta = 0.4 / self.selected_order  # for now, we just use the value recommended in the paper
-      smooth_s = local_to_smooth_sens(beta, ls_by_dist_acc)
-      eps_release_rdp = rdp_eps_release(beta, self.sigma_eps_release, order)
+      if verbose and idx % (len(self.votes_log) // 10) == 0 and idx > 0:
+        print('{}%'.format(idx/len(self.votes_log)))
 
-      release_mean = data_dependent_eps + eps_release_rdp
-      release_sdev = smooth_s * self.sigma_eps_release
-      release_sample = np.random.normal(release_mean, release_sdev)
+    beta = 0.4 / self.selected_order if custom_beta is None else custom_beta  # default recommended in the paper
+    smooth_s = local_to_smooth_sens(beta, ls_by_dist_acc)
+    eps_release_rdp = rdp_eps_release(beta, self.sigma_eps_release, order)
 
-      return release_sample, release_mean, release_sdev
+    release_rdp_mean = data_dependent_rdp_eps + eps_release_rdp
+    release_rdp_sdev = smooth_s * self.sigma_eps_release
+    release_rdp_sample = np.random.normal(release_rdp_mean, release_rdp_sdev)
+
+    delta_dp_sample, _ = rdp_to_dp([self.selected_order], [release_rdp_sample], self.target_delta)
+    delta_dp_mean, _ = rdp_to_dp([self.selected_order], [release_rdp_mean], self.target_delta)
+
+    if not analysis:
+      return release_rdp_sample, delta_dp_sample
+    else:
+
+      return release_rdp_sample, release_rdp_mean, release_rdp_sdev, eps_release_rdp, delta_dp_sample, delta_dp_mean
