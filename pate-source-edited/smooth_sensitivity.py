@@ -270,8 +270,8 @@ def compute_local_sensitivity_bounds_threshold(counts, num_teachers, threshold, 
       ls_down = _compute_ls(cur_max - d)
     ls[d] = max(ls_up, ls_down)
 
-  # TODO this seems to require the following correction:
-  corrected = False
+  # this seems to require the following correction to make it non-decreasing in d:
+  corrected = False  # However, testing indicates that this does not change anything, so I'll leave it for now.
   if corrected:
     for d in range(1, num_teachers):  # since the SS def requires dist to be <= d, not = d, ls must be non-decreasing
       ls[d] = max(ls[d-1], ls[d])  # this also covers all the 0 entries
@@ -294,14 +294,13 @@ def compute_discounted_max(beta, a):
   if beta not in dict_beta_discount or (len(dict_beta_discount[beta]) < n):
     dict_beta_discount[beta] = np.exp(-beta * np.arange(n))
 
-  discounted_ls = a * dict_beta_discount[beta][:n]
+  # debug = False
+  # if debug:
+  #   discounted_ls = a * dict_beta_discount[beta][:n]
+  #   print('chosen distance for maximal discounted ls:', np.argmax(discounted_ls), 'value:', np.max(discounted_ls))
+  #   return np.max(discounted_ls)
 
-  debug = True
-  if debug:
-    print('chosen distance for maximal discounted ls:', np.argmax(discounted_ls), 'value:', np.max(discounted_ls))
-
-    return np.max(discounted_ls)
-  return max(a * dict_beta_discount[beta][:n])  # TODO verify there's no mismatch of starting at 0 vs 1
+  return max(a * dict_beta_discount[beta][:n])
 
 
 def compute_smooth_sensitivity_gnmax(beta, counts, num_teachers, sigma, order):
