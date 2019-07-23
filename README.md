@@ -20,7 +20,7 @@ This code provides a wrapper for the released code from the "Scalable Private Le
 - `mnist_cnn.py` contains and trains the reference CNN model used in the paper
 - `test_application/validation_experiments.py` uses the vote data provided by the authors to verify that the pate_accountant outputs reasonable results.
     - This file also contains a small running example of how the PATE accountant may be applied to compute __confident GNMax__ vote release and privacy cost.
-- 
+-  
 
 ### Disclaimer
 
@@ -33,7 +33,7 @@ After my vacation I will work on the following points
 - implement efficient labeling function directly for pytorch
 - Provide full working example code including trained models
 - improve clarity in naming and documentation of code
-- iework the write-up from a loose collection of thoughts into a comprehensive read
+- rework the write-up from a loose collection of thoughts into a comprehensive read
 
 If you have any questions, comments or corrections, please don't hesitate to [contact me](https://ei.is.tuebingen.mpg.de/person/fharder).
 
