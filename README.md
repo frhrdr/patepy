@@ -20,7 +20,7 @@ This code provides a wrapper for the released code from the "Scalable Private Le
 - `mnist_cnn.py` contains and trains the reference CNN model used in the paper
 - `test_application/validation_experiments.py` uses the vote data provided by the authors to verify that the pate_accountant outputs reasonable results.
     - This file also contains a small running example of how the PATE accountant may be applied to compute __confident GNMax__ vote release and privacy cost.
--  
+-  `pate_writeup.pdf` contains an overview of the structure of the proofs from the paper, some notes, and a pseudocode version of the confident GNMax algorithm.
 
 ### Disclaimer
 
