@@ -1,7 +1,7 @@
 # patepy
 
 
-This code provides a wrapper for the released code from the "Scalable Private Learning with PATE" paper by Papernot et al (https://arxiv.org/abs/1802.08908) with the goal of making more accessible and easier to use.
+This code provides a wrapper for the released code from the "Scalable Private Learning with PATE" paper by Papernot, Song et al (https://arxiv.org/abs/1802.08908) with the goal of making more accessible and easier to use.
 
 
 
