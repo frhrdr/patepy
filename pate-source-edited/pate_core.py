@@ -81,9 +81,9 @@ def compute_logq_gaussian(counts, sigma):
   counts_rest = counts_normalized[np.arange(n) != idx_max]  # exclude one index
   # Upper bound q via a union bound rather than a more precise calculation.
   logq = _logaddexp(
-      scipy.stats.norm.logsf(counts_rest, scale=math.sqrt(2 * variance)))
+      scipy.stats.norm.logsf(counts_rest, scale=math.sqrt(2 * variance)))  # sqrt(2) in scale * sqrt(2) in logsf = 2
 
-  return min(logq, math.log(1 - (1 / n)))
+  return min(logq, math.log(1 - (1 / n)))  # (n-1)/n is upper bound when distribution is uniform
 
 
 def rdp_data_independent_gaussian(sigma, orders):

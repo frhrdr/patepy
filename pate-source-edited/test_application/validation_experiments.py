@@ -1,10 +1,9 @@
 import numpy as np
 from pate_accountant import PATEPyTorch
 
-# load mnist_250_teachers.npy votes file. train a student model based on this file and the pate2017 student model.
-
-# repeatedly let the conident gnmax algorithm answer 286 random queries from the dataset,
-# using the stated hyperparameters. If the implementation is correct, the final data-dependent eps should be around 2
+# load vote files provided by the paper and use the stated hyperparameters.
+# repeatedly let the conident gnmax algorithm answer random queries from the dataset up to the limit given in the paper.
+# If the implementation is correct, the final data-dependent eps should match the values given in the paper.
 
 
 def dataset_validation(patepy, dataset_name, custom_beta, n_to_answer, verbose=True):
@@ -71,8 +70,9 @@ def svhn_validation():
   return dataset_validation(patepy, 'svhn_250_teachers', custom_beta=0.0533, n_to_answer=3098, verbose=True)
 
 
-def glyph_validation():
-  print('caution! this will take a while...')
+def glyph_validation(n_to_answer=10762):
+  if n_to_answer > 1000:
+    print('caution! this will take a while...')
   patepy = PATEPyTorch(target_delta=1e-8,
                        sigma_votes=100.,
                        n_teachers=5000,
@@ -82,7 +82,7 @@ def glyph_validation():
                        threshold_gamma=None,
                        sigma_thresh=500.,
                        order_specs=[20.5])
-  return dataset_validation(patepy, 'glyph_5000_teachers', custom_beta=0.0205, n_to_answer=10762, verbose=True)
+  return dataset_validation(patepy, 'glyph_5000_teachers', custom_beta=0.0205, n_to_answer=n_to_answer, verbose=True)
 
 
 if __name__ == '__main__':

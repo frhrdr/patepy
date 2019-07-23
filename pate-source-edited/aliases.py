@@ -41,7 +41,7 @@ def rdp_threshold(sigma, orders, threshold, votes):
   """
   log_pr_answered = compute_logpr_answered(threshold, sigma, votes)
   logq = min(log_pr_answered, _log1mexp(log_pr_answered)) if log_pr_answered is not None else None
-  return rdp_max_vote(2**.5 * sigma, orders, logq)
+  return rdp_max_vote(2**.5 * sigma, orders, logq)  # sqrt(2) due to lower sensitivity
 
 
 def rdp_to_dp(orders, rdp, delta):

@@ -102,7 +102,7 @@ class PATEPyTorch:
     # release max vote if threshold is passed
     if release_votes:
       self._add_rdp_loss(votes, self.sigma_votes, thresh=False)
-      return np.argmax(votes + np.random.normal(np.ones_like(votes), self.sigma_thresh))
+      return np.argmax(votes + np.random.normal(np.ones_like(votes), self.sigma_votes))
     else:
       return data_intependent_ret
 
@@ -155,11 +155,9 @@ class PATEPyTorch:
 
     for idx, (votes, thresh_votes, released) in enumerate(self.votes_log):
       if self.threshold_mode is not self.basic_mode:
-        # add threshold cost
         ls_by_dist_acc += local_sensitivity(thresh_votes, self.n_teachers, self.sigma_thresh, order, self.threshold_T)
 
       if released:
-        # add release cost
         ls_by_dist_acc += local_sensitivity(votes, self.n_teachers, self.sigma_votes, order)
 
       if verbose and idx % (len(self.votes_log) // 10) == 0 and idx > 0:

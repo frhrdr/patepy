@@ -181,6 +181,10 @@ def compute_local_sensitivity_bounds_gnmax(votes, num_teachers, sigma, order):
   logq = pate.compute_logq_gaussian(votes, sigma)
   plateau = _compute_local_sens_gnmax(logq1, sigma, num_classes, order)
 
+  # print('LS args', logq1, logq0, sigma, num_classes, order)
+  # ls_vals = [_compute_local_sens_gnmax(np.log(q), sigma, num_classes, order) for q in np.arange(0.0002, 0.04, 0.0002)]
+  # np.save('LS_plot_vals.npy', np.asarray(ls_vals))
+
   res = np.full(num_teachers, plateau)
 
   if logq1 <= logq <= logq0:
@@ -265,6 +269,14 @@ def compute_local_sensitivity_bounds_threshold(counts, num_teachers, threshold, 
     if cur_max - d >= 0:
       ls_down = _compute_ls(cur_max - d)
     ls[d] = max(ls_up, ls_down)
+
+  # TODO this seems to require the following correction:
+  corrected = False
+  if corrected:
+    for d in range(1, num_teachers):  # since the SS def requires dist to be <= d, not = d, ls must be non-decreasing
+      ls[d] = max(ls[d-1], ls[d])  # this also covers all the 0 entries
+    # print('corrected ls for threshold')
+
   return ls
 
 
@@ -282,6 +294,13 @@ def compute_discounted_max(beta, a):
   if beta not in dict_beta_discount or (len(dict_beta_discount[beta]) < n):
     dict_beta_discount[beta] = np.exp(-beta * np.arange(n))
 
+  discounted_ls = a * dict_beta_discount[beta][:n]
+
+  debug = True
+  if debug:
+    print('chosen distance for maximal discounted ls:', np.argmax(discounted_ls), 'value:', np.max(discounted_ls))
+
+    return np.max(discounted_ls)
   return max(a * dict_beta_discount[beta][:n])  # TODO verify there's no mismatch of starting at 0 vs 1
 
 
