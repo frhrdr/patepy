@@ -28,7 +28,7 @@ This is a work in progress. It may well contain errors and the functionality and
 
 
 ##### TODOs
-After my vacation I will work on the following points
+At the moment I'm working on other things, but the following extensions would make sense when I get to it
 
 - implement efficient labeling function directly for pytorch
 - Provide full working example code including trained models
